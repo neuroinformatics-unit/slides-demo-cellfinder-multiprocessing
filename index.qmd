@@ -8,7 +8,7 @@ format:
     revealjs:
         theme: [default, niu-dark.scss]
         logo: img/logo_niu_dark.png
-        footer: "Edit this footer | 2023-07-26"
+        footer: "Multi-threading/processing | 2024-09-03"
         slide-number: c
         menu:
             numbers: true
@@ -40,72 +40,143 @@ format:
         embed-resources: true
         page-layout: full
 my-custom-stuff:
-   my-reuseable-variable: "I can use this wherever I want in the markdown, and change it in only once place :)"
+   my-reuseable-variable: "some stuff"
 ---
 
-## Contents
+## Table of contents
 
-Some example slides - [also look at example RevealJS slides in the Quarto docs](https://quarto.org/docs/presentations/revealjs/)
+* Context
+* Threads, Processes and Queues in Python
+* Multiprocessing in Pytorch
+* Redesigning multiprocessing for cellfinder, in PyTorch
 
-* Non-executable and executable code-blocks
-* bullet points with highlighting 
-* two-column slides 
-* how to include a slide from a separate MD file
-* preview and link to a webpage
+## Context
 
-## Just a code block, nothing gets executed...
+## A Python Queue
+::: {style="text-align: center; margin-top: 1em"}
+[A Python Queue](https://docs.python.org/3/library/queue.html#queue.Queue){preview-link="true" style="text-align: center"}
+:::
 
-... but there is some fancy highlighting
+## Threads versus Processes[^1]
 
-```{.python code-line-numbers="1|3|4-9"}
-from pathlib import Path
+::: {.fragment .fade-in-then-semi-out}
+::: {style="margin-top: 1em; font-size: 0.5em;"}
+"A process is an instance of program (e.g. Jupyter notebook, Python interpreter). Processes spawn threads (sub-processes) to handle subtasks like reading keystrokes, loading HTML pages, saving files. Threads live inside processes and share the same memory space."
+:::
+:::
 
-home_path = Path.home()
-if home_path.exists():
-  data_path = home_path / "data"
-else:
-  pass
-  # raise some error maybe?
-```
+:::: {.columns}
 
-## A code block that's actually executed at render-time
+::: {.column width="50%" style="font-size: 0.5em;"}
+::: {.fragment .fade-in}
+Processes
+
+::: {.incremental}
+  *  can have multiple threads
+  *  can execute code simultaneously in the same python program
+  *  have more overhead than threads as opening and closing processes takes more time
+  *  Sharing information is slower than sharing between threads as processes do not share memory space (pickling!).
+:::
+:::
+:::
+
+::: {.column width="50%" style="font-size: 0.5em;"}
+::: {.fragment .fade-in}
+Threads
+
+::: {.incremental}
+ * are like mini-processes that live inside a process
+ * share memory space and efficiently read and write to the same variables
+ * cannot execute code simultaneously in the same python program (although there are workarounds)
+:::
+:::
+:::
+
+::::
+
+[^1]: [Brendan Fortuner on Medium](https://medium.com/@bfortuner/python-multithreading-vs-multiprocessing-73072ce5600b)
+
+## Multithreading
 
 ```{python}
 #| echo: true
-#| code-fold: true
+# threads share local memory (by default)
+from threading import Thread
+from queue import Queue
 
-from pathlib import Path
+def put_hello_in_queue(q):
+    q.put('hello')
 
-print("Hello world")
+if __name__ == '__main__':
+    q = Queue()
+    print(type(q))
+    threads = []
+    for i in range(7):
+        t = Thread(target=put_hello_in_queue, args=(q,))
+        threads.append(t)
+        t.start() 
+        
+    for t in threads:
+        t.join() 
+
+    print([q.get() for i in range(q.qsize())])
 ```
 
-## You can execute code without showing that you have by using #|echo: false
-```{python}
-#| echo: false
+## Multiprocessing
 
-from pathlib import Path
+```{.python code-line-numbers="1|8-9|15|18"}
+# similar API, but need to be careful when accessing same memory across processes
+import multiprocessing as mp
 
-print("Hello world")
+def put_hello_in_queue(q):
+    q.put('hello')
+
+if __name__ == "__main__":
+  ctx = mp.get_context('spawn')
+  q = ctx.Queue() # multiprocessing queue contents are shared across processes
+  print(type(q))
+  processes = []
+  for i in range(7):
+      p = ctx.Process(target=put_hello_in_queue, args=(q,))
+      processes.append(p)
+      p.start() 
+      
+  for p in processes:
+      p.join() 
+
+  print([q.get() for i in range(q.qsize())])
 ```
 
-{{< include slides/extra_slide.qmd >}}
+* [Python Multiprocessing module](https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing)
+* [Multiprocessing Queue](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Queue)
+* [Pickling](https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled)
 
-## An example image
-
-Include an image:
-
-![](img/bg_logo_wide.png){width=900 fig-align=center}
-
-
-## Link and a preview a webpage:
-
+## Pytorch multiprocessing
 ::: {style="text-align: center; margin-top: 1em"}
-[interoperable Python-based tools for computational neuroanatomy](https://brainglobe.info/index.html){preview-link="true" style="text-align: center"}
+[torch.multiprocessing is a wrapper around the native multiprocessing module.](https://pytorch.org/docs/stable/multiprocessing.html){preview-link="true" style="text-align: center"}
 :::
 
-## Use a variable several times
+## Pytorch multiprocessing
+::: {style="text-align: center; margin-top: 1em"}
+[Sharing CUDA tensors](https://pytorch.org/docs/stable/multiprocessing.html#sharing-cuda-tensors){preview-link="true" style="text-align: center"}
+:::
 
-Variables defined in the metadata is re-useable anywhere
+## Cellfinder multiprocessing/threading
+New `pytorch`-friendly implementation of parallelisation in cellfinder's cell detection/
+::: {style="text-align: center; margin-top: 1em"}
+[threading.py](https://github.com/brainglobe/cellfinder/blob/dc1d740589f697680f3868f4a4a0662c1fef1616/cellfinder/core/tools/threading.py){preview-link="true" style="text-align: center"}
+[test_threading.py](https://github.com/brainglobe/cellfinder/blob/dc1d740589f697680f3868f4a4a0662c1fef1616/tests/core/test_unit/test_tools/test_threading.py){preview-link="true" style="text-align: center"}
+:::
 
-* {{< meta my-custom-stuff.my-reuseable-variable >}}
-* {{< meta my-custom-stuff.my-reuseable-variable >}}
+## Volume Filter
+::: {style="text-align: center; margin-top: 1em"}
+[Volume filter](https://github.com/brainglobe/cellfinder/blob/dc1d740589f697680f3868f4a4a0662c1fef1616/cellfinder/core/detect/filters/volume/volume_filter.py){preview-link="true" style="text-align: center"}
+:::
+
+## Docs PR
+
+
+## Performance?
+
+## Conclusions
+* complicated
