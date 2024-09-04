@@ -1,7 +1,7 @@
 ---
-title: A template presentation
-subtitle: so much fun
-author: SWC Neuroinformatics Unit
+title: Multi-threading/processing for large array data, in pytorch
+subtitle: what I learnt reviewing cellfinder PR \#440
+author: Alessandro Felder, (Matt Einhorn)
 execute: 
   enabled: true
 format:
@@ -50,12 +50,18 @@ my-custom-stuff:
 * Multiprocessing in Pytorch
 * Redesigning multiprocessing for cellfinder, in PyTorch
 
-## Context
+## Context {.smaller}
 
-## A Python Queue
-::: {style="text-align: center; margin-top: 1em"}
-[A Python Queue](https://docs.python.org/3/library/queue.html#queue.Queue){preview-link="true" style="text-align: center"}
+::: {.incremental}
+* cellfinder classification has moved to `pytorch` (thanks, Igor!)
+* Matt (developer at Cornell) has become a regular cellfinder contributor
+    * knows pytorch
+    * his lab needs speed (for e.g. CFOs whole-brain stained samples) 
+* Matt translated the "cell candidate detection steps" to pytorch
+* I needed to learn how parallelisation works in pytorch, to review the code.
+    * turns out I needed to learn Python first!
 :::
+
 
 ## Threads versus Processes[^1]
 
@@ -96,6 +102,11 @@ Threads
 
 [^1]: [Brendan Fortuner on Medium](https://medium.com/@bfortuner/python-multithreading-vs-multiprocessing-73072ce5600b)
 
+## A Python Queue
+::: {style="text-align: center; margin-top: 1em"}
+[A Python Queue](https://docs.python.org/3/library/queue.html#queue.Queue){preview-link="true" style="text-align: center"}
+:::
+
 ## Multithreading
 
 ```{python}
@@ -124,8 +135,7 @@ if __name__ == '__main__':
 
 ## Multiprocessing
 
-```{.python code-line-numbers="1|8-9|15|18"}
-# similar API, but need to be careful when accessing same memory across processes
+```{.python code-line-numbers="1|8-9|14|17"}
 import multiprocessing as mp
 
 def put_hello_in_queue(q):
@@ -144,7 +154,7 @@ if __name__ == "__main__":
   for p in processes:
       p.join() 
 
-  print([q.get() for i in range(q.qsize())])
+  print([q.get() for i in range(7)])
 ```
 
 * [Python Multiprocessing module](https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing)
@@ -162,9 +172,13 @@ if __name__ == "__main__":
 :::
 
 ## Cellfinder multiprocessing/threading
-New `pytorch`-friendly implementation of parallelisation in cellfinder's cell detection/
+New `pytorch`-friendly implementation of parallelisation in cellfinder's cell candidate detection step
+
 ::: {style="text-align: center; margin-top: 1em"}
 [threading.py](https://github.com/brainglobe/cellfinder/blob/dc1d740589f697680f3868f4a4a0662c1fef1616/cellfinder/core/tools/threading.py){preview-link="true" style="text-align: center"}
+:::
+
+::: {style="text-align: center; margin-top: 1em"}
 [test_threading.py](https://github.com/brainglobe/cellfinder/blob/dc1d740589f697680f3868f4a4a0662c1fef1616/tests/core/test_unit/test_tools/test_threading.py){preview-link="true" style="text-align: center"}
 :::
 
@@ -173,10 +187,26 @@ New `pytorch`-friendly implementation of parallelisation in cellfinder's cell de
 [Volume filter](https://github.com/brainglobe/cellfinder/blob/dc1d740589f697680f3868f4a4a0662c1fef1616/cellfinder/core/detect/filters/volume/volume_filter.py){preview-link="true" style="text-align: center"}
 :::
 
-## Docs PR
 
+## Performance and results
+::: {style="text-align: center; margin-top: 1em"}
+[Matt's benchmarks](https://github.com/brainglobe/cellfinder/pull/440){preview-link="true" style="text-align: center"}
+:::
 
 ## Performance?
+CFos data of Nic Lavoie (MIT) on our HPC, with GPU:
 
-## Conclusions
-* complicated
+* old version of cellfinder: 9 hours for ~3 Mio cell candidates
+* new version of cellfinder: 2 hours for ~3 Mio cell candidates
+
+## Next steps
+* Turn these slides in docs with nice explanatory images
+* Tweak PR 440 (expose extra parameters)
+* merge and release!
+
+
+## Concluding thoughts
+* I still don't understand everything
+* There are ways to parallelise Python (and pytorch)
+* Processes and threads are appropriate in different situations...
+* ... "optimisation" of code is empirical to some extent
